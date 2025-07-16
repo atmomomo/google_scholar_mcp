@@ -1,5 +1,3 @@
-# Credit: B站:Byron的算法分享
-
 from typing import Any
 import json
 import scholarly
@@ -13,12 +11,12 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 from googletrans import Translator
 
-# Initialize the MCP server
+# 初始化MCP服务器
 mcp = FastMCP("scholar-search", log_level="ERROR")
 
 
 def get_paper_abstract(paper_url):
-    """Try to get the abstract from the paper page"""
+    """尝试从论文页面获取摘要"""
     try:
         headers_candidate = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -36,7 +34,7 @@ def get_paper_abstract(paper_url):
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Define a list of matching rules
+            # 定义匹配规则列表
             abstract_rules = [
                 ('meta', {'property': 'og:description'}, 'content'),
                 ('meta', {'name': 'citation_abstract'}, 'content'),
@@ -49,75 +47,75 @@ def get_paper_abstract(paper_url):
 
             abstract_candidates = []
 
-            # Traverse the rules to extract the abstract
+            # 遍历规则提取摘要
             for tag, attrs, content_attr in abstract_rules:
                 try:
                     element = soup.find(tag, attrs)
                     if element:
-                        # If there is a content_attr, extract it from the attribute
+                        # 如果有 content_attr，则从属性中提取
                         if content_attr:
                             abstract_candidates.append(element.attrs.get(content_attr, '').strip())
-                        # If there is no content_attr, get the text directly
+                        # 如果没有 content_attr，则直接获取文本
                         else:
                             abstract_candidates.append(element.get_text().strip())
                 except:
-                    continue  # If a rule goes wrong, skip it
+                    continue  # 如果某个规则出错，则跳过
 
-            # Select the longest non-empty abstract
+            # 选出长度最大且不为空的摘要
             if abstract_candidates:
                 max_abstract = max(abstract_candidates, key=len)
                 if len(max_abstract) > 0:
                     return max_abstract
 
-        return "Could not retrieve abstract"
+        return "无法获取摘要"
     except Exception as e:
-        return f"Error getting abstract: {str(e)}"
+        return f"获取摘要时出错: {str(e)}"
 
 
-@mcp.tool(name="Google Scholar Search",
-          description="Search Google Scholar and return relevant paper information, including title, authors, journal, year, and abstract")
-async def search_google_scholar(query: str = Field(description="Search keywords"),
-                                num_results: int = Field(default=10, description="Number of results to return, default is 5")) -> str:
-    """Search and return the specified number of papers from Google Scholar"""
-    print(f"\nSearching for '{query}'...")
+@mcp.tool(name="谷歌学术搜索(B站:Byron的算法分享)",
+          description="搜索谷歌学术并返回相关论文信息，包括标题、作者、期刊、年份和摘要")
+async def search_google_scholar(query: str = Field(description="搜索关键词"),
+                                num_results: int = Field(default=5, description="返回的结果数量，默认为5")) -> str:
+    """从Google Scholar搜索并返回指定数量的论文信息"""
+    print(f"\n正在搜索 '{query}'...")
 
     translator = Translator()
 
-    # If the query is in Chinese, translate it
-    if any('\u4e00' <= char <= '\u9fff' for char in query):  # Check if it contains Chinese
-        translated = await translator.translate(query, src='zh-cn', dest='en')  # Translate from Chinese to English
-        query = translated.text  # Use the translated English
+    # 如果查询是中文，则进行翻译
+    if any('\u4e00' <= char <= '\u9fff' for char in query):  # 判断是否包含中文
+        translated = await translator.translate(query, src='zh-cn', dest='en')  # 从中文翻译成英文
+        query = translated.text  # 使用翻译后的英文
 
-    print(f"\nSearching for '{query}'...")
+    print(f"\n正在搜索 '{query}'...")
 
-    # Search for papers
+    # 搜索论文
     search_query = scholarly.search_pubs(query)
 
     results = []
     count = 0
 
-    for i in range(num_results * 2):  # Take a few more to deal with possible failures
+    for i in range(num_results * 2):  # 多取一些，以应对可能的失败情况
         try:
             paper = next(search_query)
 
-            # Basic information
+            # 基本信息
             paper_info = {
-                'title': paper.get('bib', {}).get('title', 'No title'),
-                'authors': paper.get('bib', {}).get('author', 'No author information'),
-                'journal': paper.get('bib', {}).get('venue', 'No journal information'),
-                'year': paper.get('bib', {}).get('pub_year', 'No publication year'),
-                'url': paper.get('pub_url', 'No URL'),
-                'num_citations': paper.get('num_citations', 'No citation'),
+                'title': paper.get('bib', {}).get('title', '无题目'),
+                'authors': paper.get('bib', {}).get('author', '无作者信息'),
+                'journal': paper.get('bib', {}).get('venue', '无期刊信息'),
+                'year': paper.get('bib', {}).get('pub_year', '无发表年份'),
+                'url': paper.get('pub_url', '无URL'),
+                'num_citations': paper.get('num_citations', '无引用'),
             }
 
-            # Try to get the abstract
+            # 尝试获取摘要
             tmp_flag = 1
             if 'pub_url' in paper and paper['pub_url']:
                 paper_info['abstract'] = get_paper_abstract(paper['pub_url'])
-                if paper_info['abstract'] == 'Could not retrieve abstract':
+                if paper_info['abstract'] == '无法获取摘要':
                     tmp_flag = 0
             else:
-                paper_info['abstract'] = 'Could not retrieve abstract'
+                paper_info['abstract'] = '无法获取摘要'
                 tmp_flag = 0
 
             if tmp_flag:
@@ -127,32 +125,32 @@ async def search_google_scholar(query: str = Field(description="Search keywords"
             if count >= num_results:
                 break
 
-            # Add a delay to avoid being blocked, and add a normal disturbance
+            # 添加延迟以避免被封，并添加正态扰动
             time.sleep(2 + random.gauss(0, 0.5))
 
         except StopIteration:
             break
         except Exception as e:
-            print(f"Error processing paper: {str(e)}")
+            print(f"处理论文时出错: {str(e)}")
             continue
 
-    # Format the output results
+    # 格式化输出结果
     if not results:
-        return "No relevant papers found"
+        return "未找到相关论文"
 
     formatted_results = []
     for i, paper in enumerate(results, 1):
-        paper_text = f"=== Paper {i} ===\n"
-        paper_text += f"Title: {paper['title']}\n"
-        paper_text += f"Authors: {', '.join(paper['authors']) if isinstance(paper['authors'], list) else paper['authors']}\n"
-        paper_text += f"Journal: {paper['journal']}\n"
-        paper_text += f"Publication Year: {paper['year']}\n"
+        paper_text = f"=== 论文 {i} ===\n"
+        paper_text += f"标题: {paper['title']}\n"
+        paper_text += f"作者: {', '.join(paper['authors']) if isinstance(paper['authors'], list) else paper['authors']}\n"
+        paper_text += f"期刊: {paper['journal']}\n"
+        paper_text += f"发表年份: {paper['year']}\n"
         paper_text += f"URL: {paper['url']}\n"
-        paper_text += f"Number of citations: {paper['num_citations']}\n"
-        paper_text += "Abstract:\n"
+        paper_text += f"引用次数: {paper['num_citations']}\n"
+        paper_text += "摘要:\n"
 
-        # Format the abstract to make it more readable
-        if paper['abstract'] and paper['abstract'] != "No abstract information" and paper['abstract'] != "Could not retrieve abstract":
+        # 格式化打印摘要，使其更易读
+        if paper['abstract'] and paper['abstract'] != "无摘要信息" and paper['abstract'] != "无法获取摘要":
             abstract_lines = textwrap.wrap(paper['abstract'], width=80)
             for line in abstract_lines:
                 paper_text += f"  {line}\n"
@@ -165,9 +163,9 @@ async def search_google_scholar(query: str = Field(description="Search keywords"
 
 
 if __name__ == "__main__":
-    # Start the MCP server
-    # You can choose stdio or sse mode
-    # For local use, stdio mode is recommended
+    # 启动MCP服务器
+    # 可以选择stdio或sse模式
+    # 对于本地使用，推荐stdio模式
     mcp.run(transport="stdio")
-    # For remote deployment, you can use sse mode
+    # 对于远程部署，可以使用sse模式
     # mcp.run(transport="sse")

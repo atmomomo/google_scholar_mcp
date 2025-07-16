@@ -1,0 +1,9 @@
+LICENSE
+README.md
+gsd_mcp.py
+pyproject.toml
+google_scholar_mcp.egg-info/PKG-INFO
+google_scholar_mcp.egg-info/SOURCES.txt
+google_scholar_mcp.egg-info/dependency_links.txt
+google_scholar_mcp.egg-info/requires.txt
+google_scholar_mcp.egg-info/top_level.txt
